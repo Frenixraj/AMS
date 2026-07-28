@@ -4,13 +4,18 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role?: "ADMIN" | "IT_TEAM" | "MANAGER" | "EMPLOYEE";
+  role?: "ADMIN" | "ASSET_MANAGER" | "MANAGER" | "EMPLOYEE" | "IT_TEAM";
+  phone?: string;
+  address?: string;
+  profile_picture_url?: string | null;
+  is_active?: boolean;
   employee_profile?: {
     id: number;
     employee_code: string;
     department_id: number;
     department_name: string;
     job_title: string;
+    phone?: string;
     is_active: boolean;
   } | null;
 }

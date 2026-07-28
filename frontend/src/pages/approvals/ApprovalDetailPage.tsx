@@ -36,7 +36,8 @@ export function ApprovalDetailPage() {
 
   const role = user?.role;
   const isManager = role === "MANAGER" || role === "ADMIN";
-  const isIT = role === "IT_TEAM" || role === "ADMIN";
+  const isIT =
+    role === "IT_TEAM" || role === "ASSET_MANAGER" || role === "ADMIN";
   const isOwner =
     user?.employee_profile?.id != null &&
     request?.requested_by === user.employee_profile.id;
@@ -178,7 +179,7 @@ export function ApprovalDetailPage() {
                       void runAction(() => approvalService.approve(request.id, comments))
                     }
                   >
-                    Approve
+                    Approve &amp; assign
                   </Button>
                   <Button
                     variant="destructive"

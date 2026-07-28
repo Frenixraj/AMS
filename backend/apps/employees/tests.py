@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from assets.models import Asset, AssetAssignment, AssetCategory
+from assets.services.assignment import assign_asset
 from authentication.models import User
 from employees.models import Department, Employee
 from maintenance.models import MaintenanceRecord
@@ -111,6 +112,12 @@ class MaintenanceNotificationsReportsTests(APITestCase):
         )
 
     def test_maintenance_create_and_complete(self):
+        # Employee must own the asset before raising maintenance
+        assign_asset(
+            asset_id=self.asset.id,
+            employee_id=self.employee.id,
+            actor=self.it,
+        )
         self.client.force_authenticate(self.emp_user)
         created = self.client.post(
             reverse("maintenance:maintenance-ticket-list"),
@@ -122,6 +129,22 @@ class MaintenanceNotificationsReportsTests(APITestCase):
             format="json",
         )
         self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["status"], "PENDING_APPROVAL")
+        self.asset.refresh_from_db()
+        # Asset stays ALLOCATED until maintenance is approved
+        self.assertEqual(self.asset.status, Asset.Status.ALLOCATED)
+
+        # Admin/manager approve
+        admin = User.objects.create_user(
+            username="adm3", email="adm3@ex.com", password="x", role=User.Role.ADMIN
+        )
+        self.client.force_authenticate(admin)
+        approved = self.client.post(
+            reverse("maintenance:maintenance-ticket-approve", args=[created.data["id"]]),
+            {},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.status, Asset.Status.MAINTENANCE)
 
@@ -133,7 +156,7 @@ class MaintenanceNotificationsReportsTests(APITestCase):
         )
         self.assertEqual(done.status_code, status.HTTP_200_OK, done.data)
         self.asset.refresh_from_db()
-        self.assertEqual(self.asset.status, Asset.Status.AVAILABLE)
+        self.assertEqual(self.asset.status, Asset.Status.ALLOCATED)
 
     def test_notifications_unread_and_mark_read(self):
         Notification.objects.create(

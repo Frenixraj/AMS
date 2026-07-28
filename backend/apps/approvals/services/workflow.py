@@ -14,7 +14,7 @@ from authentication.models import User
 from common.models import AuditLog
 from common.utils import write_audit_log
 from notifications.models import Notification
-from notifications.services import notify_user
+from notifications.services import notify_admin_mailbox, notify_user
 
 ENTITY_TYPE = "approvals.AssetRequest"
 
@@ -253,12 +253,17 @@ def create_asset_request(
             email_subject=f"[AssetFlow] Approval needed: {request_obj.request_number}",
         )
 
-    # Notify IT of new pending request (visibility)
-    for it_user in User.objects.filter(role=User.Role.IT_TEAM, is_active=True):
+    # Notify IT / Asset Manager of new pending request
+    for it_user in User.objects.filter(
+        role__in=[User.Role.ASSET_MANAGER, User.Role.IT_TEAM, User.Role.ADMIN],
+        is_active=True,
+    ):
+        if approver and it_user.id == approver.id:
+            continue
         notify_user(
             recipient=it_user,
             title=f"New request {request_obj.request_number}",
-            message="A new asset request is pending manager approval.",
+            message="A new asset request is pending approval.",
             notification_type=Notification.NotificationType.REQUEST,
             link=f"/approvals/{request_obj.id}",
             entity_type=ENTITY_TYPE,
@@ -293,6 +298,10 @@ def approve_request(
     comments: str = "",
     http_request=None,
 ) -> AssetRequest:
+    """
+    Manager/Admin approval. When an asset is selected (or one can be chosen),
+    assign it to the requester immediately and mark the request FULFILLED.
+    """
     if request_obj.status != AssetRequest.Status.PENDING:
         raise ValidationError({"detail": "Only pending requests can be approved."})
     if not _can_decide(actor, request_obj):
@@ -308,42 +317,124 @@ def approve_request(
         update_fields=["decision", "comments", "decided_at", "approver", "updated_at"]
     )
 
-    request_obj.status = AssetRequest.Status.APPROVED
-    request_obj.save(update_fields=["status", "updated_at"])
-
     _audit(
         actor,
         AuditLog.Action.APPROVE,
         request_obj,
-        {"comments": comments, "status": request_obj.status},
+        {"comments": comments},
+        http_request,
+    )
+
+    # Resolve asset to assign
+    target_asset_id = request_obj.asset_id
+    if not target_asset_id and request_obj.category_id:
+        available = (
+            Asset.objects.select_for_update()
+            .filter(category_id=request_obj.category_id, status=Asset.Status.AVAILABLE)
+            .order_by("asset_tag")
+            .first()
+        )
+        if available:
+            target_asset_id = available.id
+
+    if not target_asset_id:
+        # No asset to assign yet — leave APPROVED for later allocation
+        request_obj.status = AssetRequest.Status.APPROVED
+        request_obj.save(update_fields=["status", "updated_at"])
+        notify_user(
+            recipient=request_obj.requested_by.user,
+            title=f"{request_obj.request_number} approved",
+            message="Your request was approved. An asset will be allocated shortly.",
+            notification_type=Notification.NotificationType.APPROVAL,
+            link=f"/approvals/{request_obj.id}",
+            entity_type=ENTITY_TYPE,
+            entity_id=request_obj.pk,
+        )
+        notify_admin_mailbox(
+            subject=f"[AssetFlow] Request approved (awaiting asset): {request_obj.request_number}",
+            body=(
+                f"{actor.email} approved {request_obj.request_number} for "
+                f"{request_obj.requested_by.user.email}, but no available asset was found."
+            ),
+        )
+        return request_obj
+
+    # Assign immediately
+    asset = Asset.objects.select_for_update().get(pk=target_asset_id)
+    allowed = {Asset.Status.AVAILABLE, Asset.Status.REQUESTED}
+    if asset.status not in allowed:
+        raise ValidationError(
+            {"asset_id": f"Asset cannot be allocated (status={asset.status})."}
+        )
+    if AssetAssignment.objects.filter(
+        asset=asset, status=AssetAssignment.Status.ACTIVE
+    ).exists():
+        raise ValidationError({"asset_id": "Asset already has an active assignment."})
+
+    now = timezone.now()
+    assignment = AssetAssignment.objects.create(
+        asset=asset,
+        employee=request_obj.requested_by,
+        assigned_by=actor,
+        assigned_at=now,
+        status=AssetAssignment.Status.ACTIVE,
+        notes=comments or f"Approved request {request_obj.request_number}",
+    )
+    asset.status = Asset.Status.ALLOCATED
+    asset.save(update_fields=["status", "updated_at"])
+
+    request_obj.asset = asset
+    request_obj.assignment = assignment
+    request_obj.status = AssetRequest.Status.FULFILLED
+    request_obj.fulfilled_at = now
+    request_obj.fulfilled_by = actor
+    request_obj.save(
+        update_fields=[
+            "asset",
+            "assignment",
+            "status",
+            "fulfilled_at",
+            "fulfilled_by",
+            "updated_at",
+        ]
+    )
+
+    _audit(
+        actor,
+        AuditLog.Action.ASSIGN,
+        request_obj,
+        {"asset_id": asset.id, "assignment_id": assignment.id, "status": "FULFILLED"},
         http_request,
     )
 
     employee_user = request_obj.requested_by.user
     notify_user(
         recipient=employee_user,
-        title=f"{request_obj.request_number} approved",
-        message="Your asset request was approved. IT will allocate an asset next.",
-        notification_type=Notification.NotificationType.APPROVAL,
-        link=f"/approvals/{request_obj.id}",
+        title=f"{request_obj.request_number} approved — asset assigned",
+        message=(
+            f"Your request was approved. {asset.asset_tag} ({asset.name}) "
+            f"has been assigned to you."
+        ),
+        notification_type=Notification.NotificationType.ASSIGNMENT,
+        link=f"/assets/{asset.id}",
         entity_type=ENTITY_TYPE,
         entity_id=request_obj.pk,
-        email_subject=f"[AssetFlow] Approved: {request_obj.request_number}",
+        email_subject=f"[AssetFlow] Asset assigned: {asset.asset_tag}",
     )
 
-    for it_user in User.objects.filter(role__in=[User.Role.IT_TEAM, User.Role.ADMIN], is_active=True):
-        if it_user.id == actor.id:
-            continue
-        notify_user(
-            recipient=it_user,
-            title=f"{request_obj.request_number} ready to allocate",
-            message="An approved request is waiting for asset allocation.",
-            notification_type=Notification.NotificationType.ASSIGNMENT,
-            link=f"/approvals/{request_obj.id}",
-            entity_type=ENTITY_TYPE,
-            entity_id=request_obj.pk,
-            email_subject=f"[AssetFlow] Allocate: {request_obj.request_number}",
-        )
+    notify_admin_mailbox(
+        subject=f"[AssetFlow] Asset assigned via approval: {asset.asset_tag}",
+        body=(
+            f"{actor.email} approved {request_obj.request_number} and assigned "
+            f"{asset.asset_tag} to {employee_user.email}."
+        ),
+        context={
+            "request_number": request_obj.request_number,
+            "asset_tag": asset.asset_tag,
+            "employee": employee_user.email,
+            "approver": actor.email,
+        },
+    )
 
     return request_obj
 
@@ -452,8 +543,12 @@ def fulfill_request(
 ) -> AssetRequest:
     if request_obj.status != AssetRequest.Status.APPROVED:
         raise ValidationError({"detail": "Only approved requests can be fulfilled."})
-    if actor.role not in (User.Role.IT_TEAM, User.Role.ADMIN) and not actor.is_superuser:
-        raise PermissionDenied("Only IT Team or Admin can allocate assets.")
+    if actor.role not in (
+        User.Role.ASSET_MANAGER,
+        User.Role.IT_TEAM,
+        User.Role.ADMIN,
+    ) and not actor.is_superuser:
+        raise PermissionDenied("Only Asset Manager or Admin can allocate assets.")
 
     target_asset_id = asset_id or request_obj.asset_id
     if not target_asset_id:

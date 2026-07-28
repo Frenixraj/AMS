@@ -12,7 +12,7 @@ from common.models import AuditLog
 from common.utils import write_audit_log
 from employees.models import Employee
 from notifications.models import Notification
-from notifications.services import notify_admins_and_managers, notify_user
+from notifications.services import notify_admin_mailbox, notify_admins_and_managers, notify_user
 
 
 class AssetAssignmentSerializer(serializers.ModelSerializer):
@@ -119,6 +119,13 @@ def assign_asset(*, asset_id: int, employee_id: int, actor, notes: str = "", req
         link=f"/assets/{asset.id}",
         entity_type="assets.Asset",
         entity_id=asset.id,
+    )
+    notify_admin_mailbox(
+        subject=f"[AssetFlow] Asset assigned: {asset.asset_tag}",
+        body=(
+            f"{getattr(actor, 'email', 'system')} assigned {asset.asset_tag} "
+            f"to {employee.user.email} ({employee.employee_code})."
+        ),
     )
     return assignment
 

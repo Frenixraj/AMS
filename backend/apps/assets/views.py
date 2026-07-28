@@ -130,6 +130,37 @@ class AssetViewSet(viewsets.ModelViewSet):
     )
     ordering = ("-created_at",)
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return qs.none()
+
+        role = getattr(user, "role", None)
+        if role == "EMPLOYEE" and hasattr(user, "employee_profile"):
+            # Your Requests page: browse unassigned inventory
+            if self.request.query_params.get("for_request") in ("1", "true", "yes"):
+                return qs.filter(status=Asset.Status.AVAILABLE)
+            # Assets section: only currently owned
+            return qs.filter(
+                assignments__employee=user.employee_profile,
+                assignments__status=AssetAssignment.Status.ACTIVE,
+            ).distinct()
+
+        if role == "MANAGER":
+            # Department holdings + available stock
+            from django.db.models import Q
+
+            return qs.filter(
+                Q(
+                    assignments__employee__department__manager=user,
+                    assignments__status=AssetAssignment.Status.ACTIVE,
+                )
+                | Q(status=Asset.Status.AVAILABLE)
+            ).distinct()
+
+        return qs
+
     def get_serializer_class(self):
         if self.action == "list":
             return AssetListSerializer

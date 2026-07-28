@@ -13,18 +13,58 @@ type NavItem = {
   roles?: AppRole[];
 };
 
+/**
+ * Role-aware navigation.
+ * Employees: Assets (owned), Your Requests, Maintenance, Notifications, Profile
+ * Managers: Approvals, Employees (dept), Maintenance, …
+ * Admin / Asset Manager: full inventory tools
+ */
 const ALL_NAV: NavItem[] = [
   { label: "Dashboard", to: "/dashboard" },
   { label: "Assets", to: "/assets" },
-  { label: "Scan QR", to: "/assets/scan" },
-  { label: "Users", to: "/users", roles: ["ADMIN"] },
-  { label: "Master data", to: "/master-data", roles: ["ADMIN", "IT_TEAM"] },
-  { label: "Employees", to: "/employees", roles: ["ADMIN", "IT_TEAM", "MANAGER"] },
-  { label: "Approvals", to: "/approvals" },
+  {
+    label: "Your requests",
+    to: "/your-requests",
+    roles: ["EMPLOYEE"],
+  },
+  {
+    label: "Approvals",
+    to: "/approvals",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM", "MANAGER"],
+  },
+  {
+    label: "Scan QR",
+    to: "/assets/scan",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM"],
+  },
+  {
+    label: "Users",
+    to: "/users",
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Master data",
+    to: "/master-data",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM"],
+  },
+  {
+    label: "Employees",
+    to: "/employees",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM", "MANAGER"],
+  },
   { label: "Maintenance", to: "/maintenance" },
+  {
+    label: "Reports",
+    to: "/reports",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM", "MANAGER"],
+  },
+  {
+    label: "Audit",
+    to: "/audit",
+    roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM"],
+  },
   { label: "Notifications", to: "/notifications" },
-  { label: "Reports", to: "/reports", roles: ["ADMIN", "IT_TEAM", "MANAGER"] },
-  { label: "Audit", to: "/audit", roles: ["ADMIN", "IT_TEAM"] },
+  { label: "Profile", to: "/profile" },
 ];
 
 export function MainLayout() {
@@ -47,7 +87,7 @@ export function MainLayout() {
         const count = await notificationService.unreadCount();
         if (!cancelled) setUnread(count);
       } catch {
-        // ignore badge errors
+        // ignore
       }
     };
     void load();
@@ -88,10 +128,26 @@ export function MainLayout() {
           </div>
           <div className="flex items-center gap-3">
             {user && (
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                {user.email}
-                {user.role ? ` · ${user.role}` : ""}
-              </span>
+              <Link
+                to="/profile"
+                className="hidden items-center gap-2 text-sm text-muted-foreground hover:text-foreground sm:flex"
+              >
+                {user.profile_picture_url ? (
+                  <img
+                    src={user.profile_picture_url}
+                    alt=""
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    {(user.first_name || user.email || "?").charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span>
+                  {user.email}
+                  {user.role ? ` · ${user.role.replaceAll("_", " ")}` : ""}
+                </span>
+              </Link>
             )}
             <Button
               variant="outline"

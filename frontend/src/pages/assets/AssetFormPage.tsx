@@ -9,7 +9,7 @@ import { assetService } from "@/services/asset.service";
 import type { Asset, AssetCategory, Vendor } from "@/types/assets";
 
 function canManageAssets(role?: string): boolean {
-  return role === "ADMIN" || role === "IT_TEAM";
+  return role === "ADMIN" || role === "ASSET_MANAGER" || role === "IT_TEAM";
 }
 
 function buildFormData(values: AssetFormSchema, imageFile: File | null): FormData {

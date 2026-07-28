@@ -141,3 +141,11 @@ CORS_ALLOWED_ORIGINS = config(
     cast=Csv(),
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# Admin mailbox for assignment / approval alerts
+ADMIN_NOTIFY_EMAIL = config("ADMIN_NOTIFY_EMAIL", default="frenixraj@gmail.com")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="AssetFlow <noreply@assetflow.local>")
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)

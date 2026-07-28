@@ -13,10 +13,12 @@ class MaintenanceRecord(TimeStampedModel):
     """Repair, service, or issue report against an asset."""
 
     class Status(models.TextChoices):
+        PENDING_APPROVAL = "PENDING_APPROVAL", "Pending Approval"
         OPEN = "OPEN", "Open"
         IN_PROGRESS = "IN_PROGRESS", "In Progress"
         COMPLETED = "COMPLETED", "Completed"
         CANCELLED = "CANCELLED", "Cancelled"
+        REJECTED = "REJECTED", "Rejected"
 
     asset = models.ForeignKey(
         "assets.Asset",
@@ -34,17 +36,26 @@ class MaintenanceRecord(TimeStampedModel):
         null=True,
         blank=True,
         related_name="assigned_maintenance",
-        limit_choices_to={"role__in": ["IT_TEAM", "ADMIN"]},
-        help_text="IT staff responsible for the ticket.",
+        limit_choices_to={"role__in": ["ASSET_MANAGER", "ADMIN", "IT_TEAM"]},
+        help_text="Staff responsible for the ticket.",
     )
     title = models.CharField(max_length=160)
     issue_description = models.TextField()
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.OPEN,
+        default=Status.PENDING_APPROVAL,
         db_index=True,
     )
+    approval_comments = models.TextField(blank=True, default="")
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="maintenance_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
     cost = models.DecimalField(
         max_digits=12,
         decimal_places=2,

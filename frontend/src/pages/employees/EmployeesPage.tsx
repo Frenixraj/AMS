@@ -6,14 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { assignmentService, type Assignment } from "@/services/assignment.service";
+import { authService } from "@/services/auth.service";
 import { employeeService, type Department, type Employee } from "@/services/employee.service";
 import { assetService } from "@/services/asset.service";
 import type { AssetListItem } from "@/types/assets";
-import { isAdminOrIT } from "@/utils/roles";
+import { isAdminOrAssetManager, isManager } from "@/utils/roles";
 
 export function EmployeesPage() {
   const { user } = useAuth();
-  const canManage = isAdminOrIT(user);
+  const canManage = isAdminOrAssetManager(user) || isManager(user);
+  const canPickRole = isAdminOrAssetManager(user);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -208,7 +210,25 @@ export function EmployeesPage() {
                           {e.email} · {e.user_role}
                         </div>
                       </td>
-                      <td className="py-2">{e.department_name}</td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2">
+                          <span>{e.department_name}</span>
+                          {canManage && e.is_active && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void authService
+                                  .deactivateUser(e.user)
+                                  .then(() => load())
+                                  .catch(() => setError("Deactivate failed."))
+                              }
+                            >
+                              Deactivate
+                            </Button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -268,12 +288,13 @@ export function EmployeesPage() {
                 id="emp-role"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={empForm.role}
+                disabled={!canPickRole}
                 onChange={(e) => setEmpForm({ ...empForm, role: e.target.value })}
               >
                 <option value="EMPLOYEE">Employee</option>
-                <option value="MANAGER">Manager</option>
-                <option value="IT_TEAM">IT Team</option>
-                <option value="ADMIN">Admin</option>
+                {canPickRole && <option value="MANAGER">Manager</option>}
+                {canPickRole && <option value="ASSET_MANAGER">Asset Manager</option>}
+                {canPickRole && <option value="ADMIN">Admin</option>}
               </select>
             </div>
             <div className="space-y-1">

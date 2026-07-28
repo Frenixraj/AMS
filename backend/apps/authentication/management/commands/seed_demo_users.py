@@ -22,15 +22,19 @@ USERS = [
         "last_name": "Admin",
         "is_superuser": True,
         "employee_code": None,
+        "phone": "+91-9000000001",
+        "address": "Admin Office, HQ",
     },
     {
-        "email": "it@assetflow.local",
-        "username": "it.team",
-        "role": "IT_TEAM",
-        "first_name": "Ivan",
-        "last_name": "IT",
+        "email": "assetmanager@assetflow.local",
+        "username": "asset.manager",
+        "role": "ASSET_MANAGER",
+        "first_name": "Ash",
+        "last_name": "Manager",
         "is_superuser": False,
-        "employee_code": "IT001",
+        "employee_code": "AM001",
+        "phone": "+91-9000000002",
+        "address": "IT Store Room",
     },
     {
         "email": "manager@assetflow.local",
@@ -40,6 +44,8 @@ USERS = [
         "last_name": "Manager",
         "is_superuser": False,
         "employee_code": "MGR001",
+        "phone": "+91-9000000003",
+        "address": "Engineering Floor",
     },
     {
         "email": "employee@assetflow.local",
@@ -49,14 +55,22 @@ USERS = [
         "last_name": "Employee",
         "is_superuser": False,
         "employee_code": "EMP001",
+        "phone": "+91-9000000004",
+        "address": "Cubicle 12",
     },
 ]
 
 
 class Command(BaseCommand):
-    help = "Create demo Admin / IT / Manager / Employee users for local testing."
+    help = "Create demo Admin / Asset Manager / Manager / Employee users."
 
     def handle(self, *args, **options):
+        # Demote any legacy IT so Asset Manager slot is free
+        User.objects.filter(role="IT_TEAM").update(role="EMPLOYEE")
+        User.objects.filter(role="ASSET_MANAGER").exclude(
+            email="assetmanager@assetflow.local"
+        ).update(role="EMPLOYEE", is_active=False)
+
         dept, _ = Department.objects.get_or_create(
             code="ENG",
             defaults={"name": "Engineering", "description": "Demo department"},
@@ -71,14 +85,19 @@ class Command(BaseCommand):
                     "first_name": spec["first_name"],
                     "last_name": spec["last_name"],
                     "role": spec["role"],
+                    "phone": spec.get("phone", ""),
+                    "address": spec.get("address", ""),
                     "is_staff": True,
                     "is_superuser": spec["is_superuser"],
                 },
             )
             user.set_password(DEMO_PASSWORD)
             user.role = spec["role"]
+            user.phone = spec.get("phone", "")
+            user.address = spec.get("address", "")
             user.is_staff = True
             user.is_superuser = spec["is_superuser"]
+            user.is_active = True
             user.save()
 
             if spec["employee_code"]:
@@ -88,6 +107,7 @@ class Command(BaseCommand):
                         "department": dept,
                         "employee_code": spec["employee_code"],
                         "job_title": spec["role"].replace("_", " ").title(),
+                        "phone": spec.get("phone", ""),
                         "is_active": True,
                     },
                 )
@@ -106,3 +126,4 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(self.style.WARNING(f"Password for all demo users: {DEMO_PASSWORD}"))
         self.stdout.write("Accounts: " + ", ".join(created))
+        self.stdout.write("Admin notify email: frenixraj@gmail.com")

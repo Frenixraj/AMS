@@ -92,17 +92,12 @@ class ApprovalWorkflowTests(APITestCase):
         approve_url = reverse("asset-request-approve", args=[request_id])
         response = self.client.post(approve_url, {"comments": "Approved for Q1"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertEqual(response.data["status"], "APPROVED")
+        # Approve now assigns immediately when a specific asset was requested
+        self.assertEqual(response.data["status"], "FULFILLED")
         self.assertEqual(
             Approval.objects.get(asset_request_id=request_id).decision,
             Approval.Decision.APPROVED,
         )
-
-        self.client.force_authenticate(self.it_user)
-        fulfill_url = reverse("asset-request-fulfill", args=[request_id])
-        response = self.client.post(fulfill_url, {"asset_id": self.asset.id}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertEqual(response.data["status"], "FULFILLED")
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.status, Asset.Status.ALLOCATED)
         self.assertTrue(

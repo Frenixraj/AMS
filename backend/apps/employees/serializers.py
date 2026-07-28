@@ -107,7 +107,7 @@ class EmployeeProvisionSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     role = serializers.ChoiceField(
-        choices=["EMPLOYEE", "MANAGER", "IT_TEAM", "ADMIN"],
+        choices=["EMPLOYEE", "MANAGER", "ASSET_MANAGER", "ADMIN"],
         default="EMPLOYEE",
     )
     department = serializers.PrimaryKeyRelatedField(
@@ -116,6 +116,16 @@ class EmployeeProvisionSerializer(serializers.Serializer):
     employee_code = serializers.CharField(max_length=32)
     job_title = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
     phone = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
+
+    def validate_role(self, value: str) -> str:
+        from authentication.models import User
+
+        if value == "ASSET_MANAGER":
+            if User.objects.filter(role=User.Role.ASSET_MANAGER, is_active=True).exists():
+                raise serializers.ValidationError(
+                    "Only one active Asset Manager is allowed."
+                )
+        return value
 
     def validate_email(self, value: str) -> str:
         email = value.strip().lower()

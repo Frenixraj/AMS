@@ -54,4 +54,19 @@ export const authService = {
     const { data } = await apiClient.post<ManagedUser>("/auth/users/", payload);
     return data;
   },
+
+  async updateProfile(formData: FormData): Promise<User> {
+    const { data } = await apiClient.patch<User>("/auth/me/", formData);
+    return data;
+  },
+
+  async deactivateUser(id: number): Promise<ManagedUser> {
+    const { data } = await apiClient.post<ManagedUser>(`/auth/users/${id}/deactivate/`);
+    return data;
+  },
+
+  async activateUser(id: number): Promise<ManagedUser> {
+    const { data } = await apiClient.post<ManagedUser>(`/auth/users/${id}/activate/`);
+    return data;
+  },
 };

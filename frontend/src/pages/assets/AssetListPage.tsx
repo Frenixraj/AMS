@@ -15,7 +15,7 @@ import type {
 } from "@/types/assets";
 
 function canManageAssets(role?: string): boolean {
-  return role === "ADMIN" || role === "IT_TEAM";
+  return role === "ADMIN" || role === "ASSET_MANAGER" || role === "IT_TEAM";
 }
 
 export function AssetListPage() {
@@ -94,7 +94,7 @@ export function AssetListPage() {
             Inventory, QR codes, and lifecycle status.
           </p>
         </div>
-        {manage && (
+        {!manage && user?.role === "EMPLOYEE" ? null : manage ? (
           <div className="flex gap-2">
             <Button asChild variant="outline">
               <Link to="/assets/scan">Scan QR</Link>
@@ -103,12 +103,7 @@ export function AssetListPage() {
               <Link to="/assets/new">Add asset</Link>
             </Button>
           </div>
-        )}
-        {!manage && (
-          <Button asChild variant="outline">
-            <Link to="/assets/scan">Scan QR</Link>
-          </Button>
-        )}
+        ) : null}
       </div>
 
       <AssetFilters
@@ -121,9 +116,13 @@ export function AssetListPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-base">Inventory</CardTitle>
+            <CardTitle className="text-base">
+              {user?.role === "EMPLOYEE" ? "Your assets" : "Inventory"}
+            </CardTitle>
             <CardDescription>
-              {count} asset{count === 1 ? "" : "s"} · page {params.page ?? 1} of {pageCount}
+              {user?.role === "EMPLOYEE"
+                ? "Assets currently assigned to you"
+                : `${count} asset${count === 1 ? "" : "s"} · page ${params.page ?? 1} of ${pageCount}`}
             </CardDescription>
           </div>
         </CardHeader>

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+ASSET_OPS_ROLES = ("ADMIN", "ASSET_MANAGER", "IT_TEAM")
+
 
 def _role(user) -> str | None:
     if not user or not user.is_authenticated:
@@ -13,6 +15,10 @@ def _role(user) -> str | None:
     return getattr(user, "role", None)
 
 
+def is_asset_ops_role(role: str | None) -> bool:
+    return role in ASSET_OPS_ROLES
+
+
 class IsAdmin(BasePermission):
     """Only Admin (or Django superuser treated as ADMIN)."""
 
@@ -20,25 +26,29 @@ class IsAdmin(BasePermission):
         return _role(request.user) == "ADMIN"
 
 
-class IsAdminOrITTeam(BasePermission):
-    """Write access for Admin and IT Team; others denied."""
+class IsAdminOrAssetManager(BasePermission):
+    """Write access for Admin and Asset Manager."""
 
     def has_permission(self, request, view) -> bool:
-        return _role(request.user) in ("ADMIN", "IT_TEAM")
+        return is_asset_ops_role(_role(request.user))
 
 
-class IsAdminOrITTeamOrReadOnly(BasePermission):
-    """
-    Authenticated users may read.
-    Only Admin / IT Team may create, update, or delete.
-    """
+# Backwards-compatible aliases
+IsAdminOrITTeam = IsAdminOrAssetManager
+
+
+class IsAdminOrAssetManagerOrReadOnly(BasePermission):
+    """Authenticated read; Admin / Asset Manager write."""
 
     def has_permission(self, request, view) -> bool:
         if not request.user or not request.user.is_authenticated:
             return False
         if request.method in SAFE_METHODS:
             return True
-        return _role(request.user) in ("ADMIN", "IT_TEAM")
+        return is_asset_ops_role(_role(request.user))
+
+
+IsAdminOrITTeamOrReadOnly = IsAdminOrAssetManagerOrReadOnly
 
 
 class IsAuthenticatedEmployee(BasePermission):
@@ -58,4 +68,4 @@ class IsManagerOrAdmin(BasePermission):
 
 class IsITTeamOrAdmin(BasePermission):
     def has_permission(self, request, view) -> bool:
-        return _role(request.user) in ("IT_TEAM", "ADMIN")
+        return is_asset_ops_role(_role(request.user))

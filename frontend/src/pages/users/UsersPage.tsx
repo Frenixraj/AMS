@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService, type ManagedUser } from "@/services/auth.service";
 
-const ROLES = ["ADMIN", "IT_TEAM", "MANAGER", "EMPLOYEE"] as const;
+const ROLES = ["ADMIN", "ASSET_MANAGER", "MANAGER", "EMPLOYEE"] as const;
+
 
 export function UsersPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -92,8 +93,8 @@ export function UsersPage() {
         <CardHeader>
           <CardTitle className="text-base">Create user</CardTitle>
           <CardDescription>
-            After creating an Employee-role user, link them on the Employees page if they need asset
-            assignment.
+            After creating an Employee, link them on Employees if they need asset assignment. Only
+            one active Asset Manager is allowed.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -181,7 +182,7 @@ export function UsersPage() {
                       Active
                     </th>
                     <th scope="col" className="py-2">
-                      Employee profile
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -192,7 +193,29 @@ export function UsersPage() {
                       <td className="py-2 pr-3">{u.email}</td>
                       <td className="py-2 pr-3 font-mono text-xs">{u.role}</td>
                       <td className="py-2 pr-3">{u.is_active ? "Yes" : "No"}</td>
-                      <td className="py-2">{u.has_employee_profile ? "Yes" : "—"}</td>
+                      <td className="py-2 pr-3">{u.has_employee_profile ? "Yes" : "—"}</td>
+                      <td className="py-2">
+                        {u.is_active ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void authService.deactivateUser(u.id).then(() => load())
+                            }
+                          >
+                            Deactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              void authService.activateUser(u.id).then(() => load())
+                            }
+                          >
+                            Activate
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
