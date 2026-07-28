@@ -13,6 +13,7 @@ urlpatterns = [
     path("requests/", views.request_pipeline_report, name="requests"),
     path("assets-by-department/", views.assets_by_department_json, name="assets-by-department"),
     path("assets-by-category/", views.assets_by_category_json, name="assets-by-category"),
+    path("assets-by-person/", views.assets_by_person_json, name="assets-by-person"),
     path("allocation-history/", views.allocation_history_json, name="allocation-history"),
     path("maintenance-history/", views.maintenance_history_json, name="maintenance-history"),
     # Legacy CSV

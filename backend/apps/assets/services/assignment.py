@@ -11,6 +11,8 @@ from assets.models import Asset, AssetAssignment
 from common.models import AuditLog
 from common.utils import write_audit_log
 from employees.models import Employee
+from notifications.models import Notification
+from notifications.services import notify_admins_and_managers, notify_user
 
 
 class AssetAssignmentSerializer(serializers.ModelSerializer):
@@ -93,6 +95,30 @@ def assign_asset(*, asset_id: int, employee_id: int, actor, notes: str = "", req
         entity_id=assignment.pk,
         changes={"asset_id": asset.id, "employee_id": employee.id},
         request=request,
+    )
+
+    owner_name = f"{employee.user.first_name} {employee.user.last_name}".strip() or employee.user.email
+    msg = (
+        f"{asset.asset_tag} ({asset.name}) assigned to {owner_name} "
+        f"({employee.employee_code}) in {employee.department.name}."
+    )
+    notify_admins_and_managers(
+        title="Asset assigned",
+        message=msg,
+        notification_type=Notification.NotificationType.ASSIGNMENT,
+        link=f"/assets/{asset.id}",
+        entity_type="assets.AssetAssignment",
+        entity_id=assignment.pk,
+        exclude_user_id=getattr(actor, "id", None),
+    )
+    notify_user(
+        recipient=employee.user,
+        title="Asset assigned to you",
+        message=f"You have been assigned {asset.asset_tag} ({asset.name}).",
+        notification_type=Notification.NotificationType.ASSIGNMENT,
+        link=f"/assets/{asset.id}",
+        entity_type="assets.Asset",
+        entity_id=asset.id,
     )
     return assignment
 

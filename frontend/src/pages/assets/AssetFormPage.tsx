@@ -125,9 +125,9 @@ export function AssetFormPage() {
               {error}
             </p>
           )}
-          {categories.length === 0 && (
+          {categories.length === 0 && !isEdit && (
             <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              No categories found. Create a category via API/admin first (e.g. Laptop / LAPTOP).
+              No categories yet — use “+ Add category” on the form below.
             </p>
           )}
           <AssetForm
@@ -137,6 +137,20 @@ export function AssetFormPage() {
             submitting={submitting}
             onSubmit={handleSubmit}
             onCancel={() => navigate(isEdit ? `/assets/${id}` : "/assets")}
+            onCreateCategory={async (payload) => {
+              const created = await assetService.createCategory(payload);
+              setCategories((prev) =>
+                [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+              );
+              return created;
+            }}
+            onCreateVendor={async (payload) => {
+              const created = await assetService.createVendor(payload);
+              setVendors((prev) =>
+                [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+              );
+              return created;
+            }}
           />
         </CardContent>
       </Card>

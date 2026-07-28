@@ -37,6 +37,19 @@ export interface Vendor {
   updated_at: string;
 }
 
+export interface AssetOwner {
+  assignment_id: number;
+  employee_id: number;
+  employee_code: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  job_title: string;
+  department_id: number;
+  department_name: string;
+  assigned_at: string;
+}
+
 export interface AssetListItem {
   id: number;
   asset_tag: string;
@@ -54,6 +67,7 @@ export interface AssetListItem {
   warranty_expiry: string | null;
   image_url: string | null;
   qr_code_url: string | null;
+  current_owner?: AssetOwner | null;
   created_at: string;
   updated_at: string;
 }

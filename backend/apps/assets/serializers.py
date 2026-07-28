@@ -7,7 +7,7 @@ from typing import Optional
 
 from rest_framework import serializers
 
-from assets.models import Asset, AssetCategory, Vendor
+from assets.models import Asset, AssetAssignment, AssetCategory, Vendor
 
 
 def absolute_media_url(request, field) -> Optional[str]:
@@ -17,6 +17,39 @@ def absolute_media_url(request, field) -> Optional[str]:
     if request is not None:
         return request.build_absolute_uri(url)
     return url
+
+
+def _current_owner_payload(obj: Asset) -> Optional[dict]:
+    assignment = None
+    active_list = getattr(obj, "_active_assignment_list", None)
+    if active_list:
+        assignment = active_list[0]
+    elif assignment is None:
+        assignment = (
+            AssetAssignment.objects.filter(
+                asset_id=obj.pk,
+                status=AssetAssignment.Status.ACTIVE,
+            )
+            .select_related("employee__user", "employee__department")
+            .first()
+        )
+    if assignment is None:
+        return None
+    emp = assignment.employee
+    user = emp.user
+    full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+    return {
+        "assignment_id": assignment.id,
+        "employee_id": emp.id,
+        "employee_code": emp.employee_code,
+        "full_name": full_name,
+        "email": user.email,
+        "phone": emp.phone,
+        "job_title": emp.job_title,
+        "department_id": emp.department_id,
+        "department_name": emp.department.name,
+        "assigned_at": assignment.assigned_at.isoformat(),
+    }
 
 
 class AssetCategorySerializer(serializers.ModelSerializer):
@@ -58,6 +91,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source="vendor.name", read_only=True, default=None)
     image_url = serializers.SerializerMethodField()
     qr_code_url = serializers.SerializerMethodField()
+    current_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -78,6 +112,7 @@ class AssetListSerializer(serializers.ModelSerializer):
             "warranty_expiry",
             "image_url",
             "qr_code_url",
+            "current_owner",
             "created_at",
             "updated_at",
         )
@@ -87,6 +122,9 @@ class AssetListSerializer(serializers.ModelSerializer):
 
     def get_qr_code_url(self, obj: Asset) -> Optional[str]:
         return absolute_media_url(self.context.get("request"), obj.qr_code)
+
+    def get_current_owner(self, obj: Asset) -> Optional[dict]:
+        return _current_owner_payload(obj)
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -102,6 +140,7 @@ class AssetSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     qr_code_url = serializers.SerializerMethodField()
     qr_payload = serializers.SerializerMethodField()
+    current_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -125,6 +164,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "qr_code",
             "qr_code_url",
             "qr_payload",
+            "current_owner",
             "notes",
             "created_by",
             "created_by_email",
@@ -137,6 +177,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "current_owner",
         )
         extra_kwargs = {
             "image": {"write_only": True, "required": False},
@@ -152,6 +193,9 @@ class AssetSerializer(serializers.ModelSerializer):
         from assets.services.qr import build_qr_payload
 
         return build_qr_payload(obj)
+
+    def get_current_owner(self, obj: Asset) -> Optional[dict]:
+        return _current_owner_payload(obj)
 
     def validate_asset_tag(self, value: str) -> str:
         value = value.strip().upper()

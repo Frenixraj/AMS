@@ -13,6 +13,13 @@ def _role(user) -> str | None:
     return getattr(user, "role", None)
 
 
+class IsAdmin(BasePermission):
+    """Only Admin (or Django superuser treated as ADMIN)."""
+
+    def has_permission(self, request, view) -> bool:
+        return _role(request.user) == "ADMIN"
+
+
 class IsAdminOrITTeam(BasePermission):
     """Write access for Admin and IT Team; others denied."""
 

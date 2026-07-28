@@ -78,6 +78,30 @@ export const reportService = {
       results: Array<Record<string, string>>;
     };
   },
+  async assetsByPerson() {
+    const { data } = await apiClient.get("/reports/assets-by-person/");
+    return data as {
+      summary: Array<{
+        employee_id: number;
+        employee_code: string;
+        employee_name: string;
+        employee_email: string;
+        department: string;
+        asset_count: number;
+      }>;
+      results: Array<{
+        employee_code: string;
+        employee_name: string;
+        employee_email: string;
+        department: string;
+        asset_tag: string;
+        asset_name: string;
+        category: string;
+        status: string;
+        assigned_at: string;
+      }>;
+    };
+  },
   async allocationHistory() {
     const { data } = await apiClient.get("/reports/allocation-history/");
     return data as { results: Array<Record<string, string>> };

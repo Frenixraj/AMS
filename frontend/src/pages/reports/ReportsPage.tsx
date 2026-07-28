@@ -40,22 +40,25 @@ export function ReportsPage() {
   const [warranty, setWarranty] = useState<Awaited<ReturnType<typeof reportService.warranty>> | null>(null);
   const [allocations, setAllocations] = useState<Awaited<ReturnType<typeof reportService.allocations>> | null>(null);
   const [requests, setRequests] = useState<Awaited<ReturnType<typeof reportService.requests>> | null>(null);
+  const [byPerson, setByPerson] = useState<Awaited<ReturnType<typeof reportService.assetsByPerson>> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [inv, war, alloc, req] = await Promise.all([
+        const [inv, war, alloc, req, person] = await Promise.all([
           reportService.inventory(),
           reportService.warranty(90),
           reportService.allocations(),
           reportService.requests(),
+          reportService.assetsByPerson(),
         ]);
         setInventory(inv);
         setWarranty(war);
         setAllocations(alloc);
         setRequests(req);
+        setByPerson(person);
       } catch {
         setError("Failed to load reports.");
       }
@@ -224,6 +227,75 @@ export function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Assets by person</CardTitle>
+          <CardDescription>
+            Active assignments per employee ({byPerson?.summary.length ?? 0} people)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2 text-sm">
+            {byPerson?.summary.map((row) => (
+              <li key={row.employee_id} className="flex justify-between border-b pb-1">
+                <span>
+                  {row.employee_name}{" "}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    ({row.employee_code})
+                  </span>{" "}
+                  · {row.department}
+                </span>
+                <span className="tabular-nums font-medium">{row.asset_count}</span>
+              </li>
+            ))}
+            {!byPerson?.summary.length && (
+              <li className="text-muted-foreground">No active assignments.</li>
+            )}
+          </ul>
+          {!!byPerson?.results.length && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">Assets assigned by person</caption>
+                <thead className="border-b text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="py-2 pr-3">
+                      Person
+                    </th>
+                    <th scope="col" className="py-2 pr-3">
+                      Asset
+                    </th>
+                    <th scope="col" className="py-2 pr-3">
+                      Category
+                    </th>
+                    <th scope="col" className="py-2">
+                      Assigned
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byPerson.results.map((row) => (
+                    <tr
+                      key={`${row.employee_code}-${row.asset_tag}`}
+                      className="border-b last:border-0"
+                    >
+                      <td className="py-2 pr-3">
+                        {row.employee_name}
+                        <div className="text-xs text-muted-foreground">{row.department}</div>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className="font-mono text-xs">{row.asset_tag}</span> · {row.asset_name}
+                      </td>
+                      <td className="py-2 pr-3">{row.category}</td>
+                      <td className="py-2 text-xs text-muted-foreground">{row.assigned_at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

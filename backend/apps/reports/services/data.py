@@ -59,6 +59,71 @@ def assets_by_department_summary() -> list[dict[str, Any]]:
     ]
 
 
+def assets_by_person_rows() -> list[dict[str, Any]]:
+    """Active allocations grouped for per-person reporting."""
+    qs = (
+        AssetAssignment.objects.filter(status=AssetAssignment.Status.ACTIVE)
+        .select_related(
+            "asset",
+            "asset__category",
+            "employee",
+            "employee__user",
+            "employee__department",
+        )
+        .order_by("employee__employee_code", "asset__asset_tag")
+    )
+    return [
+        {
+            "employee_id": a.employee_id,
+            "employee_code": a.employee.employee_code,
+            "employee_name": (
+                f"{a.employee.user.first_name} {a.employee.user.last_name}".strip()
+                or a.employee.user.email
+            ),
+            "employee_email": a.employee.user.email,
+            "department": a.employee.department.name,
+            "department_code": a.employee.department.code,
+            "asset_id": a.asset_id,
+            "asset_tag": a.asset.asset_tag,
+            "asset_name": a.asset.name,
+            "category": a.asset.category.name,
+            "status": a.asset.status,
+            "assigned_at": a.assigned_at.isoformat(sep=" ", timespec="minutes"),
+        }
+        for a in qs
+    ]
+
+
+def assets_by_person_summary() -> list[dict[str, Any]]:
+    rows = (
+        AssetAssignment.objects.filter(status=AssetAssignment.Status.ACTIVE)
+        .values(
+            "employee_id",
+            "employee__employee_code",
+            "employee__user__email",
+            "employee__user__first_name",
+            "employee__user__last_name",
+            "employee__department__name",
+        )
+        .annotate(asset_count=Count("id"))
+        .order_by("-asset_count", "employee__employee_code")
+    )
+    result = []
+    for r in rows:
+        name = f"{r['employee__user__first_name']} {r['employee__user__last_name']}".strip()
+        result.append(
+            {
+                "employee_id": r["employee_id"],
+                "employee_code": r["employee__employee_code"],
+                "employee_name": name or r["employee__user__email"],
+                "employee_email": r["employee__user__email"],
+                "department": r["employee__department__name"],
+                "asset_count": r["asset_count"],
+            }
+        )
+    return result
+
+
 def assets_by_category_rows() -> list[dict[str, Any]]:
     qs = Asset.objects.select_related("category", "vendor").order_by(
         "category__name", "asset_tag"

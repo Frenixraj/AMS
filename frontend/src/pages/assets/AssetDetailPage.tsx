@@ -161,6 +161,35 @@ export function AssetDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
+              <CardTitle className="text-base">Current owner</CardTitle>
+              <CardDescription>
+                Shown when this asset’s QR is scanned.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {asset.current_owner ? (
+                <dl className="grid gap-3">
+                  <Detail label="Name" value={asset.current_owner.full_name} />
+                  <Detail label="Employee code" value={asset.current_owner.employee_code} mono />
+                  <Detail label="Email" value={asset.current_owner.email} />
+                  <Detail label="Phone" value={asset.current_owner.phone || "—"} />
+                  <Detail label="Job title" value={asset.current_owner.job_title || "—"} />
+                  <Detail label="Department" value={asset.current_owner.department_name} />
+                  <Detail
+                    label="Assigned at"
+                    value={new Date(asset.current_owner.assigned_at).toLocaleString()}
+                  />
+                </dl>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Not currently assigned to anyone.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">Image</CardTitle>
             </CardHeader>
             <CardContent>

@@ -58,4 +58,18 @@ export const employeeService = {
     const { data } = await apiClient.post("/employees/", payload);
     return data;
   },
+  async provision(payload: {
+    email: string;
+    password: string;
+    first_name?: string;
+    last_name?: string;
+    role?: string;
+    department: number;
+    employee_code: string;
+    job_title?: string;
+    phone?: string;
+  }): Promise<Employee> {
+    const { data } = await apiClient.post("/employees/provision/", payload);
+    return data;
+  },
 };

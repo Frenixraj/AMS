@@ -21,6 +21,7 @@ import { MaintenancePage } from "@/pages/maintenance/MaintenancePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
+import { UsersPage } from "@/pages/users/UsersPage";
 
 export function AppRoutes() {
   return (
@@ -44,6 +45,10 @@ export function AppRoutes() {
           <Route path="/approvals/:id" element={<ApprovalDetailPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+
+          <Route element={<RequireRole roles={["ADMIN"]} />}>
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
 
           <Route element={<RequireRole roles={["ADMIN", "IT_TEAM", "MANAGER"]} />}>
             <Route path="/employees" element={<EmployeesPage />} />

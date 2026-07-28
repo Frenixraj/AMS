@@ -2,16 +2,20 @@
 
 from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from common.permissions import IsAdminOrITTeamOrReadOnly
+from common.permissions import IsAdminOrITTeam, IsAdminOrITTeamOrReadOnly
 from employees.filters import DepartmentFilter, EmployeeFilter
 from employees.models import Department, Employee
-from employees.serializers import DepartmentSerializer, EmployeeSerializer
+from employees.serializers import (
+    DepartmentSerializer,
+    EmployeeProvisionSerializer,
+    EmployeeSerializer,
+)
 
 
 @api_view(["GET"])
@@ -53,11 +57,25 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
-        # Managers see their department roster; employees see themselves only on list? 
-        # Keep read-all for authenticated via permission class; managers may need dept filter client-side.
         if user.role == "MANAGER" and not user.is_superuser:
             return qs.filter(department__manager=user)
         if user.role == "EMPLOYEE" and hasattr(user, "employee_profile"):
             if self.action in ("list", "retrieve"):
                 return qs.filter(pk=user.employee_profile.pk)
         return qs
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="provision",
+        permission_classes=[IsAuthenticated, IsAdminOrITTeam],
+    )
+    def provision(self, request):
+        """Create user login + employee profile together."""
+        serializer = EmployeeProvisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        employee = serializer.save()
+        return Response(
+            EmployeeSerializer(employee).data,
+            status=status.HTTP_201_CREATED,
+        )

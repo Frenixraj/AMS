@@ -1,6 +1,7 @@
 """API views for Asset Management."""
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
@@ -28,6 +29,8 @@ from assets.services.audit import asset_snapshot, log_asset_change
 from assets.services.qr import generate_asset_qr_code
 from common.models import AuditLog
 from common.permissions import IsAdminOrITTeam, IsAdminOrITTeamOrReadOnly
+from notifications.models import Notification
+from notifications.services import notify_admins_and_managers
 from rest_framework.permissions import IsAuthenticated
 
 
@@ -46,6 +49,18 @@ class AssetCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ("name", "code", "created_at")
     ordering = ("name",)
 
+    def perform_create(self, serializer):
+        category = serializer.save()
+        notify_admins_and_managers(
+            title="New category added",
+            message=f"Category {category.code} ({category.name}) was created.",
+            notification_type=Notification.NotificationType.INFO,
+            link="/master-data",
+            entity_type="assets.AssetCategory",
+            entity_id=category.id,
+            exclude_user_id=self.request.user.id,
+        )
+
 
 class VendorViewSet(viewsets.ModelViewSet):
     """Supporting lookup CRUD for vendors (within Asset module)."""
@@ -59,6 +74,18 @@ class VendorViewSet(viewsets.ModelViewSet):
     ordering_fields = ("name", "created_at")
     ordering = ("name",)
 
+    def perform_create(self, serializer):
+        vendor = serializer.save()
+        notify_admins_and_managers(
+            title="New vendor added",
+            message=f"Vendor {vendor.name} was created.",
+            notification_type=Notification.NotificationType.INFO,
+            link="/master-data",
+            entity_type="assets.Vendor",
+            entity_id=vendor.id,
+            exclude_user_id=self.request.user.id,
+        )
+
 
 class AssetViewSet(viewsets.ModelViewSet):
     """
@@ -67,7 +94,17 @@ class AssetViewSet(viewsets.ModelViewSet):
     """
 
     queryset = (
-        Asset.objects.select_related("category", "vendor", "created_by").all()
+        Asset.objects.select_related("category", "vendor", "created_by")
+        .prefetch_related(
+            Prefetch(
+                "assignments",
+                queryset=AssetAssignment.objects.filter(
+                    status=AssetAssignment.Status.ACTIVE
+                ).select_related("employee__user", "employee__department"),
+                to_attr="_active_assignment_list",
+            )
+        )
+        .all()
     )
     permission_classes = [IsAdminOrITTeamOrReadOnly]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -108,6 +145,15 @@ class AssetViewSet(viewsets.ModelViewSet):
             asset=asset,
             after=asset_snapshot(asset),
             request=self.request,
+        )
+        notify_admins_and_managers(
+            title="New asset added",
+            message=f"{asset.asset_tag} ({asset.name}) was added to inventory.",
+            notification_type=Notification.NotificationType.INFO,
+            link=f"/assets/{asset.id}",
+            entity_type="assets.Asset",
+            entity_id=asset.id,
+            exclude_user_id=self.request.user.id,
         )
 
     @transaction.atomic

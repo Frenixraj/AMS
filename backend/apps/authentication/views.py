@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user_model
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from common.permissions import IsAdminOrITTeam
+from authentication.serializers import UserCreateSerializer, UserListSerializer
+from common.permissions import IsAdmin, IsAdminOrITTeam
 
 User = get_user_model()
 
@@ -37,31 +40,41 @@ def me(request):
     return Response(payload)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated, IsAdminOrITTeam])
-def users_list(request):
+class UserListCreateView(APIView):
     """
-    List users for admin/IT (e.g. linking an Employee profile).
-    Query: without_employee=true — only users that have no Employee row.
+    GET  — Admin / IT: list users (optional without_employee filter).
+    POST — Admin only: create a login user with a role.
     """
-    qs = User.objects.filter(is_active=True).order_by("email")
-    without = request.query_params.get("without_employee", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    if without:
-        qs = qs.filter(employee_profile__isnull=True)
 
-    data = [
-        {
-            "id": u.id,
-            "email": u.email,
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "role": u.role,
-            "full_name": f"{u.first_name} {u.last_name}".strip() or u.email,
-        }
-        for u in qs[:200]
-    ]
-    return Response({"count": len(data), "results": data})
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated(), IsAdminOrITTeam()]
+
+    def get(self, request):
+        qs = User.objects.all().order_by("email")
+        without = request.query_params.get("without_employee", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if without:
+            qs = qs.filter(employee_profile__isnull=True, is_active=True)
+        active_only = request.query_params.get("is_active", "").lower()
+        if active_only in ("1", "true", "yes"):
+            qs = qs.filter(is_active=True)
+        elif active_only in ("0", "false", "no"):
+            qs = qs.filter(is_active=False)
+
+        data = UserListSerializer(qs[:200], many=True).data
+        return Response({"count": len(data), "results": data})
+
+    def post(self, request):
+        serializer = UserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserListSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+# Backward-compatible function name for older reverse lookups in tests.
+users_list = UserListCreateView.as_view()

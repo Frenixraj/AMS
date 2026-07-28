@@ -9,10 +9,11 @@ import { assignmentService, type Assignment } from "@/services/assignment.servic
 import { employeeService, type Department, type Employee } from "@/services/employee.service";
 import { assetService } from "@/services/asset.service";
 import type { AssetListItem } from "@/types/assets";
+import { isAdminOrIT } from "@/utils/roles";
 
 export function EmployeesPage() {
   const { user } = useAuth();
-  const canManage = user?.role === "ADMIN" || user?.role === "IT_TEAM";
+  const canManage = isAdminOrIT(user);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -20,6 +21,17 @@ export function EmployeesPage() {
   const [error, setError] = useState<string | null>(null);
   const [deptForm, setDeptForm] = useState({ name: "", code: "" });
   const [assignForm, setAssignForm] = useState({ asset_id: "", employee_id: "" });
+  const [empForm, setEmpForm] = useState({
+    email: "",
+    password: "",
+    first_name: "",
+    last_name: "",
+    role: "EMPLOYEE",
+    department: "",
+    employee_code: "",
+    job_title: "",
+    phone: "",
+  });
 
   const load = useCallback(async () => {
     setError(null);
@@ -30,7 +42,12 @@ export function EmployeesPage() {
         assignmentService.list({ status: "ACTIVE", page_size: 50 }),
         canManage
           ? assetService.list({ status: "AVAILABLE", page: 1 })
-          : Promise.resolve({ results: [] as AssetListItem[], count: 0, next: null, previous: null }),
+          : Promise.resolve({
+              results: [] as AssetListItem[],
+              count: 0,
+              next: null,
+              previous: null,
+            }),
       ]);
       setEmployees(emps.results);
       setDepartments(deps.results);
@@ -58,6 +75,44 @@ export function EmployeesPage() {
     }
   };
 
+  const createEmployee = async () => {
+    if (
+      !empForm.email.trim() ||
+      !empForm.password ||
+      !empForm.department ||
+      !empForm.employee_code.trim()
+    ) {
+      return;
+    }
+    try {
+      await employeeService.provision({
+        email: empForm.email.trim().toLowerCase(),
+        password: empForm.password,
+        first_name: empForm.first_name.trim() || undefined,
+        last_name: empForm.last_name.trim() || undefined,
+        role: empForm.role,
+        department: Number(empForm.department),
+        employee_code: empForm.employee_code.trim().toUpperCase(),
+        job_title: empForm.job_title.trim() || undefined,
+        phone: empForm.phone.trim() || undefined,
+      });
+      setEmpForm({
+        email: "",
+        password: "",
+        first_name: "",
+        last_name: "",
+        role: "EMPLOYEE",
+        department: "",
+        employee_code: "",
+        job_title: "",
+        phone: "",
+      });
+      await load();
+    } catch {
+      setError("Could not create employee (email/code may already exist).");
+    }
+  };
+
   const assign = async () => {
     if (!assignForm.asset_id || !assignForm.employee_id) return;
     try {
@@ -77,10 +132,14 @@ export function EmployeesPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Employees</h1>
         <p className="text-sm text-muted-foreground">
-          Departments, people, and active asset assignments.
+          Add people with a department, then assign assets to them.
         </p>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -122,14 +181,21 @@ export function EmployeesPage() {
             <CardTitle className="text-base">Directory</CardTitle>
             <CardDescription>{employees.length} employees</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
+                <caption className="sr-only">Employee directory</caption>
                 <thead className="border-b text-muted-foreground">
                   <tr>
-                    <th className="py-2 pr-3">Code</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2">Department</th>
+                    <th scope="col" className="py-2 pr-3">
+                      Code
+                    </th>
+                    <th scope="col" className="py-2 pr-3">
+                      Name
+                    </th>
+                    <th scope="col" className="py-2">
+                      Department
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -138,7 +204,9 @@ export function EmployeesPage() {
                       <td className="py-2 pr-3 font-mono text-xs">{e.employee_code}</td>
                       <td className="py-2 pr-3">
                         <div>{e.full_name}</div>
-                        <div className="text-xs text-muted-foreground">{e.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {e.email} · {e.user_role}
+                        </div>
                       </td>
                       <td className="py-2">{e.department_name}</td>
                     </tr>
@@ -146,15 +214,114 @@ export function EmployeesPage() {
                 </tbody>
               </table>
             </div>
-            {canManage && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Create employee profiles via API/admin (link User → Department). Use assign below for
-                direct IT allocation.
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
+
+      {canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Add employee</CardTitle>
+            <CardDescription>
+              Creates a login account and employee profile so you can assign assets and test as that
+              user.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="emp-email">Email</Label>
+              <Input
+                id="emp-email"
+                type="email"
+                value={empForm.email}
+                onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-password">Temp password</Label>
+              <Input
+                id="emp-password"
+                type="password"
+                value={empForm.password}
+                onChange={(e) => setEmpForm({ ...empForm, password: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-fn">First name</Label>
+              <Input
+                id="emp-fn"
+                value={empForm.first_name}
+                onChange={(e) => setEmpForm({ ...empForm, first_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-ln">Last name</Label>
+              <Input
+                id="emp-ln"
+                value={empForm.last_name}
+                onChange={(e) => setEmpForm({ ...empForm, last_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-role">Role</Label>
+              <select
+                id="emp-role"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={empForm.role}
+                onChange={(e) => setEmpForm({ ...empForm, role: e.target.value })}
+              >
+                <option value="EMPLOYEE">Employee</option>
+                <option value="MANAGER">Manager</option>
+                <option value="IT_TEAM">IT Team</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-dept">Department</Label>
+              <select
+                id="emp-dept"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={empForm.department}
+                onChange={(e) => setEmpForm({ ...empForm, department: e.target.value })}
+              >
+                <option value="">Select department</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.code} — {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-code">Employee code</Label>
+              <Input
+                id="emp-code"
+                value={empForm.employee_code}
+                onChange={(e) => setEmpForm({ ...empForm, employee_code: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="emp-title">Job title</Label>
+              <Input
+                id="emp-title"
+                value={empForm.job_title}
+                onChange={(e) => setEmpForm({ ...empForm, job_title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="emp-phone">Phone</Label>
+              <Input
+                id="emp-phone"
+                value={empForm.phone}
+                onChange={(e) => setEmpForm({ ...empForm, phone: e.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button onClick={() => void createEmployee()}>Create employee + login</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -165,8 +332,9 @@ export function EmployeesPage() {
           {canManage && (
             <div className="grid gap-2 md:grid-cols-3">
               <div className="space-y-1">
-                <Label>Asset</Label>
+                <Label htmlFor="assign-asset">Asset</Label>
                 <select
+                  id="assign-asset"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={assignForm.asset_id}
                   onChange={(e) => setAssignForm({ ...assignForm, asset_id: e.target.value })}
@@ -180,8 +348,9 @@ export function EmployeesPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label>Employee</Label>
+                <Label htmlFor="assign-employee">Employee</Label>
                 <select
+                  id="assign-employee"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={assignForm.employee_id}
                   onChange={(e) => setAssignForm({ ...assignForm, employee_id: e.target.value })}
@@ -210,9 +379,7 @@ export function EmployeesPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      void assignmentService.returnAsset(a.id).then(() => load())
-                    }
+                    onClick={() => void assignmentService.returnAsset(a.id).then(() => load())}
                   >
                     Return
                   </Button>

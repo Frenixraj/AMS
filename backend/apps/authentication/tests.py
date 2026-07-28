@@ -62,3 +62,42 @@ class AuthAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.orphan)
         response = self.client.get(reverse("authentication:users_list"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_create_user(self):
+        admin = User.objects.create_user(
+            username="admin.auth",
+            email="admin.auth@example.com",
+            password="TestPass123!",
+            role=User.Role.ADMIN,
+            is_superuser=True,
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.post(
+            reverse("authentication:users_list"),
+            {
+                "email": "new.user@example.com",
+                "password": "SecurePass1!",
+                "first_name": "New",
+                "last_name": "User",
+                "role": "MANAGER",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["email"], "new.user@example.com")
+        self.assertEqual(response.data["role"], "MANAGER")
+        created = User.objects.get(email="new.user@example.com")
+        self.assertTrue(created.check_password("SecurePass1!"))
+
+    def test_it_cannot_create_user(self):
+        self.client.force_authenticate(user=self.it_user)
+        response = self.client.post(
+            reverse("authentication:users_list"),
+            {
+                "email": "blocked@example.com",
+                "password": "SecurePass1!",
+                "role": "EMPLOYEE",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

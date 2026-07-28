@@ -17,6 +17,7 @@ const ALL_NAV: NavItem[] = [
   { label: "Dashboard", to: "/dashboard" },
   { label: "Assets", to: "/assets" },
   { label: "Scan QR", to: "/assets/scan" },
+  { label: "Users", to: "/users", roles: ["ADMIN"] },
   { label: "Master data", to: "/master-data", roles: ["ADMIN", "IT_TEAM"] },
   { label: "Employees", to: "/employees", roles: ["ADMIN", "IT_TEAM", "MANAGER"] },
   { label: "Approvals", to: "/approvals" },

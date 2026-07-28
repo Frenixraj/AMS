@@ -1,6 +1,20 @@
 import { apiClient } from "@/services/api";
 import type { AuthTokens, LoginCredentials, User } from "@/types";
 
+export interface ManagedUser {
+  id: number;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  is_staff: boolean;
+  has_employee_profile: boolean;
+  date_joined: string;
+}
+
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthTokens> {
     const response = await apiClient.post<AuthTokens>("/auth/token/", credentials);
@@ -21,18 +35,23 @@ export const authService = {
 
   async listUsers(params: { without_employee?: boolean } = {}): Promise<{
     count: number;
-    results: Array<{
-      id: number;
-      email: string;
-      first_name: string;
-      last_name: string;
-      role: string;
-      full_name: string;
-    }>;
+    results: ManagedUser[];
   }> {
     const { data } = await apiClient.get("/auth/users/", {
       params: params.without_employee ? { without_employee: true } : undefined,
     });
+    return data;
+  },
+
+  async createUser(payload: {
+    email: string;
+    password: string;
+    first_name?: string;
+    last_name?: string;
+    role?: string;
+    is_active?: boolean;
+  }): Promise<ManagedUser> {
+    const { data } = await apiClient.post<ManagedUser>("/auth/users/", payload);
     return data;
   },
 };

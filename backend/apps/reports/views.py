@@ -160,6 +160,18 @@ def assets_by_category_json(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def assets_by_person_json(request):
+    """Assets currently assigned, grouped by individual employee."""
+    return Response(
+        {
+            "summary": report_data.assets_by_person_summary(),
+            "results": report_data.assets_by_person_rows(),
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def allocation_history_json(request):
     return Response({"results": report_data.allocation_history_rows()})
 
