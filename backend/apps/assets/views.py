@@ -147,16 +147,13 @@ class AssetViewSet(viewsets.ModelViewSet):
                 assignments__status=AssetAssignment.Status.ACTIVE,
             ).distinct()
 
-        if role == "MANAGER":
-            # Department holdings + available stock
-            from django.db.models import Q
-
+        if role == "MANAGER" and hasattr(user, "employee_profile"):
+            # Managers are employees with extra access — own assets + available for requests
+            if self.request.query_params.get("for_request") in ("1", "true", "yes"):
+                return qs.filter(status=Asset.Status.AVAILABLE)
             return qs.filter(
-                Q(
-                    assignments__employee__department__manager=user,
-                    assignments__status=AssetAssignment.Status.ACTIVE,
-                )
-                | Q(status=Asset.Status.AVAILABLE)
+                assignments__employee=user.employee_profile,
+                assignments__status=AssetAssignment.Status.ACTIVE,
             ).distinct()
 
         return qs

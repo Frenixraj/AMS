@@ -11,7 +11,7 @@ import type { AssetListItem } from "@/types/assets";
 import type { AssetRequest } from "@/types/approvals";
 
 /**
- * Employee: browse unassigned assets and request ownership.
+ * Employee / Manager: browse unassigned assets and request ownership.
  */
 export function YourRequestsPage() {
   const [available, setAvailable] = useState<AssetListItem[]>([]);

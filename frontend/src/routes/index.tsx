@@ -23,7 +23,6 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
-import { UsersPage } from "@/pages/users/UsersPage";
 
 export function AppRoutes() {
   return (
@@ -45,8 +44,9 @@ export function AppRoutes() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 
-          <Route element={<RequireRole roles={["EMPLOYEE"]} />}>
+          <Route element={<RequireRole roles={["EMPLOYEE", "MANAGER"]} />}>
             <Route path="/your-requests" element={<YourRequestsPage />} />
+            <Route path="/approvals/new" element={<ApprovalCreatePage />} />
           </Route>
 
           <Route
@@ -60,14 +60,8 @@ export function AppRoutes() {
             <Route path="/reports" element={<ReportsPage />} />
           </Route>
 
-          {/* Keep /approvals/new for managers who request? Employees use Your Requests */}
-          <Route element={<RequireRole roles={["EMPLOYEE", "MANAGER"]} />}>
-            <Route path="/approvals/new" element={<ApprovalCreatePage />} />
-          </Route>
-
-          <Route element={<RequireRole roles={["ADMIN"]} />}>
-            <Route path="/users" element={<UsersPage />} />
-          </Route>
+          {/* Users merged into People (/employees) */}
+          <Route path="/users" element={<Navigate to="/employees" replace />} />
 
           <Route element={<RequireRole roles={["ADMIN", "ASSET_MANAGER", "IT_TEAM"]} />}>
             <Route path="/assets/scan" element={<QrScanPage />} />

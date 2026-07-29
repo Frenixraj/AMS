@@ -35,7 +35,10 @@ const EXPORTS: Array<{
 
 export function ReportsPage() {
   const { user } = useAuth();
-  const canExport = user?.role === "ADMIN" || user?.role === "IT_TEAM";
+  const canExport =
+    user?.role === "ADMIN" ||
+    user?.role === "ASSET_MANAGER" ||
+    user?.role === "IT_TEAM";
   const [inventory, setInventory] = useState<Awaited<ReturnType<typeof reportService.inventory>> | null>(null);
   const [warranty, setWarranty] = useState<Awaited<ReturnType<typeof reportService.warranty>> | null>(null);
   const [allocations, setAllocations] = useState<Awaited<ReturnType<typeof reportService.allocations>> | null>(null);

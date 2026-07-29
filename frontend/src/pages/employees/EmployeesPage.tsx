@@ -14,7 +14,10 @@ import { isAdminOrAssetManager, isManager } from "@/utils/roles";
 
 export function EmployeesPage() {
   const { user } = useAuth();
-  const canManage = isAdminOrAssetManager(user) || isManager(user);
+  /** People directory: Admin, Asset Manager, and department Managers. */
+  const canManagePeople = isAdminOrAssetManager(user) || isManager(user);
+  /** Inventory assign/return and departments: ops roles only. */
+  const canManageOps = isAdminOrAssetManager(user);
   const canPickRole = isAdminOrAssetManager(user);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -42,7 +45,7 @@ export function EmployeesPage() {
         employeeService.list({ page_size: 100 }),
         employeeService.listDepartments(),
         assignmentService.list({ status: "ACTIVE", page_size: 50 }),
-        canManage
+        canManageOps
           ? assetService.list({ status: "AVAILABLE", page: 1 })
           : Promise.resolve({
               results: [] as AssetListItem[],
@@ -56,9 +59,9 @@ export function EmployeesPage() {
       setAssignments(assigns.results);
       setAvailableAssets(assets.results);
     } catch {
-      setError("Failed to load employees.");
+      setError("Failed to load people.");
     }
-  }, [canManage]);
+  }, [canManageOps]);
 
   useEffect(() => {
     void load();
@@ -111,7 +114,7 @@ export function EmployeesPage() {
       });
       await load();
     } catch {
-      setError("Could not create employee (email/code may already exist).");
+      setError("Could not create person (email/code may already exist).");
     }
   };
 
@@ -132,9 +135,10 @@ export function EmployeesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Employees</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">People</h1>
         <p className="text-sm text-muted-foreground">
-          Add people with a department, then assign assets to them.
+          Everyone is a person in a department with a login and a role (Employee, Manager, Asset
+          Manager, or Admin). Managers are employees with approval access for their department.
         </p>
       </div>
       {error && (
@@ -160,7 +164,7 @@ export function EmployeesPage() {
                 </li>
               ))}
             </ul>
-            {canManage && (
+            {canManageOps && (
               <div className="grid gap-2 sm:grid-cols-3">
                 <Input
                   placeholder="Name"
@@ -181,12 +185,12 @@ export function EmployeesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Directory</CardTitle>
-            <CardDescription>{employees.length} employees</CardDescription>
+            <CardDescription>{employees.length} people</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <caption className="sr-only">Employee directory</caption>
+                <caption className="sr-only">People directory</caption>
                 <thead className="border-b text-muted-foreground">
                   <tr>
                     <th scope="col" className="py-2 pr-3">
@@ -205,7 +209,12 @@ export function EmployeesPage() {
                     <tr key={e.id} className="border-b last:border-0">
                       <td className="py-2 pr-3 font-mono text-xs">{e.employee_code}</td>
                       <td className="py-2 pr-3">
-                        <div>{e.full_name}</div>
+                        <div>
+                          {e.full_name}
+                          {!e.is_active && (
+                            <span className="ml-2 text-xs text-muted-foreground">(inactive)</span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {e.email} · {e.user_role}
                         </div>
@@ -213,7 +222,7 @@ export function EmployeesPage() {
                       <td className="py-2">
                         <div className="flex items-center gap-2">
                           <span>{e.department_name}</span>
-                          {canManage && e.is_active && (
+                          {canManagePeople && e.is_active && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -227,6 +236,20 @@ export function EmployeesPage() {
                               Deactivate
                             </Button>
                           )}
+                          {canManagePeople && !e.is_active && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void authService
+                                  .activateUser(e.user)
+                                  .then(() => load())
+                                  .catch(() => setError("Activate failed."))
+                              }
+                            >
+                              Activate
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -238,13 +261,13 @@ export function EmployeesPage() {
         </Card>
       </div>
 
-      {canManage && (
+      {canManagePeople && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Add employee</CardTitle>
+            <CardTitle className="text-base">Add person</CardTitle>
             <CardDescription>
-              Creates a login account and employee profile so you can assign assets and test as that
-              user.
+              Creates login + profile together. Managers can only add Employees in their own
+              department. Only one active Asset Manager is allowed.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -338,7 +361,7 @@ export function EmployeesPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <Button onClick={() => void createEmployee()}>Create employee + login</Button>
+              <Button onClick={() => void createEmployee()}>Create person</Button>
             </div>
           </CardContent>
         </Card>
@@ -347,10 +370,12 @@ export function EmployeesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Active assignments</CardTitle>
-          <CardDescription>Direct IT assign / return outside approval workflow</CardDescription>
+          <CardDescription>
+            Direct assign / return outside the approval workflow (Asset Manager / Admin).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {canManage && (
+          {canManageOps && (
             <div className="grid gap-2 md:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="assign-asset">Asset</Label>
@@ -369,14 +394,14 @@ export function EmployeesPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="assign-employee">Employee</Label>
+                <Label htmlFor="assign-employee">Person</Label>
                 <select
                   id="assign-employee"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={assignForm.employee_id}
                   onChange={(e) => setAssignForm({ ...assignForm, employee_id: e.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Select person</option>
                   {employees.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.employee_code} — {e.full_name}
@@ -396,7 +421,7 @@ export function EmployeesPage() {
                   <span className="font-mono text-xs">{a.asset_tag}</span> → {a.employee_code} (
                   {a.employee_email})
                 </span>
-                {canManage && (
+                {canManageOps && (
                   <Button
                     size="sm"
                     variant="outline"

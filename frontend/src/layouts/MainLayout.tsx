@@ -15,9 +15,10 @@ type NavItem = {
 
 /**
  * Role-aware navigation.
- * Employees: Assets (owned), Your Requests, Maintenance, Notifications, Profile
- * Managers: Approvals, Employees (dept), Maintenance, …
- * Admin / Asset Manager: full inventory tools
+ * Every account is a person (login + department profile). Roles add privileges:
+ * - Employee / Manager: owned assets, Your requests, Maintenance, Profile
+ * - Manager (+): Approvals, People (dept), Reports
+ * - Admin / Asset Manager: inventory tools, People, Audit, …
  */
 const ALL_NAV: NavItem[] = [
   { label: "Dashboard", to: "/dashboard" },
@@ -25,7 +26,7 @@ const ALL_NAV: NavItem[] = [
   {
     label: "Your requests",
     to: "/your-requests",
-    roles: ["EMPLOYEE"],
+    roles: ["EMPLOYEE", "MANAGER"],
   },
   {
     label: "Approvals",
@@ -38,17 +39,12 @@ const ALL_NAV: NavItem[] = [
     roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM"],
   },
   {
-    label: "Users",
-    to: "/users",
-    roles: ["ADMIN"],
-  },
-  {
     label: "Master data",
     to: "/master-data",
     roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM"],
   },
   {
-    label: "Employees",
+    label: "People",
     to: "/employees",
     roles: ["ADMIN", "ASSET_MANAGER", "IT_TEAM", "MANAGER"],
   },

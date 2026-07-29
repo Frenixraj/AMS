@@ -94,7 +94,8 @@ export function AssetListPage() {
             Inventory, QR codes, and lifecycle status.
           </p>
         </div>
-        {!manage && user?.role === "EMPLOYEE" ? null : manage ? (
+        {!manage &&
+        (user?.role === "EMPLOYEE" || user?.role === "MANAGER") ? null : manage ? (
           <div className="flex gap-2">
             <Button asChild variant="outline">
               <Link to="/assets/scan">Scan QR</Link>
@@ -117,10 +118,12 @@ export function AssetListPage() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
             <CardTitle className="text-base">
-              {user?.role === "EMPLOYEE" ? "Your assets" : "Inventory"}
+              {user?.role === "EMPLOYEE" || user?.role === "MANAGER"
+                ? "Your assets"
+                : "Inventory"}
             </CardTitle>
             <CardDescription>
-              {user?.role === "EMPLOYEE"
+              {user?.role === "EMPLOYEE" || user?.role === "MANAGER"
                 ? "Assets currently assigned to you"
                 : `${count} asset${count === 1 ? "" : "s"} · page ${params.page ?? 1} of ${pageCount}`}
             </CardDescription>

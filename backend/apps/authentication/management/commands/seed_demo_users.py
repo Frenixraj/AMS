@@ -21,7 +21,7 @@ USERS = [
         "first_name": "Ada",
         "last_name": "Admin",
         "is_superuser": True,
-        "employee_code": None,
+        "employee_code": "ADM001",
         "phone": "+91-9000000001",
         "address": "Admin Office, HQ",
     },

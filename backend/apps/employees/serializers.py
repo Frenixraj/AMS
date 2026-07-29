@@ -156,6 +156,10 @@ class EmployeeProvisionSerializer(serializers.Serializer):
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
             role=validated_data.get("role", User.Role.EMPLOYEE),
+            phone=validated_data.get("phone", ""),
+            is_staff=validated_data.get("role")
+            in ("ADMIN", "ASSET_MANAGER", "IT_TEAM"),
+            is_superuser=validated_data.get("role") == "ADMIN",
         )
         employee = Employee.objects.create(
             user=user,
@@ -165,7 +169,7 @@ class EmployeeProvisionSerializer(serializers.Serializer):
             phone=validated_data.get("phone", ""),
         )
         notify_admins_and_managers(
-            title="New employee added",
+            title="New person added",
             message=(
                 f"{employee.employee_code} ({email}) created in "
                 f"{employee.department.name} with role {user.role}."
