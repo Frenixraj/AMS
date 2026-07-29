@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
+import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { notificationService } from "@/services/notification.service";
@@ -101,8 +102,8 @@ export function MainLayout() {
       <header className="border-b">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-lg font-semibold">
-              AssetFlow
+            <Link to="/dashboard" className="shrink-0" aria-label="AssetFlow home">
+              <Logo imgClassName="h-8" />
             </Link>
             <nav className="hidden flex-wrap gap-3 lg:flex" aria-label="Primary">
               {navItems.map((item) => (

@@ -104,8 +104,10 @@ export function printQrLabel(options: {
   serialNumber: string;
   qrImageUrl: string;
   qrPayload: string;
+  brandLogoUrl?: string;
 }): void {
   const imageSrc = toProxiedMediaUrl(options.qrImageUrl) ?? options.qrImageUrl;
+  const brandLogoUrl = options.brandLogoUrl ?? `${window.location.origin}/brand/logo.png`;
   const printWindow = window.open("", "_blank", "noopener,noreferrer,width=480,height=640");
   if (!printWindow) {
     throw new Error("Popup blocked. Allow popups to print QR labels.");
@@ -132,25 +134,26 @@ export function printQrLabel(options: {
       text-align: center;
       box-sizing: border-box;
     }
-    .brand { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #555; }
+    .brand { margin: 0 auto 8px; }
+    .brand img { width: 140px; height: auto; margin: 0 auto; display: block; }
     .tag { font-size: 22px; font-weight: 700; margin: 8px 0 4px; font-family: ui-monospace, monospace; }
     .name { font-size: 14px; margin-bottom: 4px; }
     .serial { font-size: 12px; color: #444; font-family: ui-monospace, monospace; }
-    img { width: 180px; height: 180px; margin: 12px auto; display: block; }
+    img.qr { width: 180px; height: 180px; margin: 12px auto; display: block; }
     .payload { font-size: 10px; word-break: break-all; color: #666; font-family: ui-monospace, monospace; }
   </style>
 </head>
 <body>
   <div class="label">
-    <div class="brand">AssetFlow</div>
+    <div class="brand"><img src="${escapeHtml(brandLogoUrl)}" alt="AssetFlow" onerror="this.parentElement.textContent='AssetFlow'" /></div>
     <div class="tag">${escapeHtml(options.assetTag)}</div>
     <div class="name">${escapeHtml(options.name)}</div>
     <div class="serial">S/N ${escapeHtml(options.serialNumber)}</div>
-    <img src="${escapeHtml(imageSrc)}" alt="QR ${escapeHtml(options.assetTag)}" />
+    <img class="qr" src="${escapeHtml(imageSrc)}" alt="QR ${escapeHtml(options.assetTag)}" />
     <div class="payload">${escapeHtml(options.qrPayload)}</div>
   </div>
   <script>
-    const img = document.querySelector('img');
+    const img = document.querySelector('img.qr');
     const triggerPrint = () => { window.focus(); window.print(); };
     if (img.complete) setTimeout(triggerPrint, 50);
     else img.onload = () => setTimeout(triggerPrint, 50);

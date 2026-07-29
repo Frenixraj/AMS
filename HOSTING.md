@@ -1,5 +1,7 @@
 # Hosting AssetFlow (including GitHub Pages)
 
+For **Docker** (recommended single-host deploy), see **[DOCKER.md](./DOCKER.md)**.
+
 AssetFlow is a **SPA + Django API** app. GitHub Pages can host the **frontend only** (static files). The Django backend needs a separate host.
 
 ## Why GitHub Pages alone is not enough

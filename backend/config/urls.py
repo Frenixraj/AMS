@@ -23,5 +23,5 @@ urlpatterns = [
     path("api/dashboard/", include("dashboard.urls")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve uploaded media in Docker / local (use object storage in large production deploys).
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
